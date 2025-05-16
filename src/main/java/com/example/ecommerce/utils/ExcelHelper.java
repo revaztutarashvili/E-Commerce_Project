@@ -5,6 +5,7 @@ import com.example.ecommerce.models.Product;
 import com.example.ecommerce.models.User;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.core.io.ClassPathResource;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -49,11 +50,17 @@ public class ExcelHelper {
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet(sheetName);
 
-            // Write data
+            // Create headers
+            createHeaders(sheet, sheetName);
+
+            // Write data (starting from row 1 to skip headers)
             for (int i = 0; i < items.size(); i++) {
-                Row row = sheet.createRow(i);
+                Row row = sheet.createRow(i + 1);
                 writer.write(row, items.get(i));
             }
+
+            // Auto-size columns
+            autoSizeColumns(sheet);
 
             // Save to file
             try (FileOutputStream out = new FileOutputStream(filePath)) {
@@ -62,12 +69,60 @@ public class ExcelHelper {
         }
     }
 
+    private static void createHeaders(Sheet sheet, String sheetName) {
+        Row headerRow = sheet.createRow(0);
+
+        switch (sheetName) {
+            case "Products":
+                headerRow.createCell(0).setCellValue("ID");
+                headerRow.createCell(1).setCellValue("Name");
+                headerRow.createCell(2).setCellValue("Price");
+                headerRow.createCell(3).setCellValue("Stock");
+                break;
+            case "Users":
+                headerRow.createCell(0).setCellValue("Username");
+                headerRow.createCell(1).setCellValue("Role");
+                headerRow.createCell(2).setCellValue("Budget");
+                break;
+            case "Orders":
+                headerRow.createCell(0).setCellValue("ID");
+                headerRow.createCell(1).setCellValue("User ID");
+                headerRow.createCell(2).setCellValue("Product ID");
+                headerRow.createCell(3).setCellValue("Quantity");
+                headerRow.createCell(4).setCellValue("Total Price");
+                break;
+        }
+    }
+
+    private static void autoSizeColumns(Sheet sheet) {
+        for (int i = 0; i < sheet.getRow(0).getLastCellNum(); i++) {
+            sheet.autoSizeColumn(i);
+        }
+    }
+
     public static Workbook getWorkbook(String filePath) throws IOException {
         File file = new File(filePath);
+
+        // If file doesn't exist, create a new one with headers
         if (!file.exists()) {
-            throw new IOException("File not found: " + filePath);
+            Workbook workbook = new XSSFWorkbook();
+
+            // Create empty sheets with headers
+            createHeaders(workbook.createSheet("Products"), "Products");
+            createHeaders(workbook.createSheet("Users"), "Users");
+            createHeaders(workbook.createSheet("Orders"), "Orders");
+
+            // Save the new file
+            try (FileOutputStream out = new FileOutputStream(filePath)) {
+                workbook.write(out);
+            }
+            return workbook;
         }
-        return WorkbookFactory.create(new FileInputStream(file));
+
+        // If file exists, return it
+        try (FileInputStream fis = new FileInputStream(file)) {
+            return WorkbookFactory.create(fis);
+        }
     }
 
     @FunctionalInterface
